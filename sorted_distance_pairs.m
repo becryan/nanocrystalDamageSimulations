@@ -1,5 +1,5 @@
 % finds pairs with index locations and sorts by minimum distance - part of solution from 
-%length of array
+% r -length of array of x-y pairs
 r=10;
 pairs=[];
 
