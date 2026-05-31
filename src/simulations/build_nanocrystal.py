@@ -1,4 +1,29 @@
-import numpy as np
+"""
+Utilities for constructing 2D and 3D nanocrystal models from an asymmetric
+unit (e.g. a single protein molecule).
+
+These functions replicate the atomic coordinates of the asymmetric unit
+across a periodic lattice to generate a full crystal suitable for coherent
+scattering or diffraction simulations. The replication is performed using
+fully vectorised NumPy broadcasting, avoiding Python loops and enabling
+efficient construction of large crystals.
+
+Two variants are provided:
+
+    - build_newcrystal():    2D lattice replication in the (x, y) plane.
+    - build_newcrystal_3d(): full 3D replication using lattice constants
+                             (a, b, c) along x, y, and z.
+
+Both functions return a flat array of atomic coordinates and atomic numbers
+in the format expected by downstream scattering code:
+
+        [x, y, z, Z]
+
+where Z is the atomic number. The functions assume a simple orthorhombic
+lattice; more complex space groups or arbitrary lattice vectors can be
+added if needed.
+
+"""
 
 
 def build_newcrystal(x, y, charge, a=39.0, b=35.0, ncell=4):
