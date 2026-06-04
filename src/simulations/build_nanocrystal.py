@@ -25,8 +25,10 @@ added if needed.
 
 """
 
+import numpy as np
 
-def build_newcrystal(x, y, charge, a=39.0, b=35.0, ncell=4):
+
+def build_newcrystal(x, y, charge, ncell, a=39.0, b=35.0):
     """
     Vectorised version of the MATLAB code:
     for i = -4:4
@@ -61,7 +63,7 @@ def build_newcrystal(x, y, charge, a=39.0, b=35.0, ncell=4):
     return newcrystal
 
 
-def build_newcrystal_3d(x, y, z, charge, a=39.0, b=35.0, c=50.0, ncell=4):
+def build_newcrystal_3d(x, y, z, charge, ncell, a=39.0, b=35.0, c=50.0):
     """
     Build a 3D crystal by replicating the asymmetric unit across
     a cubic lattice from -ncell to +ncell in each dimension.
