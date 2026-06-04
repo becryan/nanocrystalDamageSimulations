@@ -28,77 +28,84 @@ added if needed.
 import numpy as np
 
 
-def build_newcrystal(x, y, charge, ncell, a=39.0, b=35.0):
+def build_newcrystal(x, y, charge, ncell, a=39.0, b=35.0, centered=True):
     """
-    Vectorised version of the MATLAB code:
-    for i = -4:4
-        for j = -4:4
-            newcrystal = [x + a*i, y + b*j, charge]
+    Build a 2D crystal by replicating the asymmetric unit across a regular
+    lattice in x and y.
+
+    Args:
+        x, y: coordinates of the asymmetric unit.
+        charge: atomic numbers for each atom.
+        ncell: number of unit cells along each axis.
+        a, b: lattice constants in x and y.
+        centered: whether to center the replicated lattice at the origin.
+
+    Example:
+        ncell=2 produces a 2x2 crystal grid.
     """
 
-    # lattice indices: [-ncell, ..., +ncell]
-    cells = np.arange(-ncell, ncell + 1)  # e.g. [-4..4] → 9 cells
+    if centered:
+        x = x - 0.5 * (x.min() + x.max())
+        y = y - 0.5 * (y.min() + y.max())
 
-    # broadcast shifts
-    shift_x = cells[:, None] * a  # shape (L, 1)
-    shift_y = cells[None, :] * b  # shape (1, L)
+    # lattice indices: [0, ..., ncell-1]
+    cells = np.arange(ncell, dtype=float)
+    if centered:
+        cells -= (ncell - 1) / 2.0
 
-    # full grid of shifts
-    grid_x = shift_x[:, :, None]  # (L, L, 1)
-    grid_y = shift_y[:, :, None]  # (L, L, 1)
+    # lattice cell indices and shifts
+    coords = np.column_stack([x, y])  # (N, 2)
 
-    # broadcast original coordinates
-    x0 = x[None, None, :]  # (1, 1, N)
-    y0 = y[None, None, :]  # (1, 1, N)
-    Z0 = charge[None, None, :]  # (1, 1, N)
+    if centered:
+        coords[:, 0] -= 0.5 * (coords[:, 0].min() + coords[:, 0].max())
+        coords[:, 1] -= 0.5 * (coords[:, 1].min() + coords[:, 1].max())
 
-    # apply shifts to all atoms at once
-    X = x0 + grid_x  # (L, L, N)
-    Y = y0 + grid_y  # (L, L, N)
-    Z = np.broadcast_to(Z0, X.shape)  # (L, L, N)
+    cells = np.arange(ncell, dtype=float)
+    if centered:
+        cells -= (ncell - 1) / 2.0
 
-    # reshape to (L*L*N, 3)
-    newcrystal = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
+    sx, sy = np.meshgrid(cells * a, cells * b, indexing="ij")
+    shifts = np.column_stack([sx.ravel(), sy.ravel()])
 
+    tiled_coords = np.tile(coords, (shifts.shape[0], 1))
+    rep_shifts = np.repeat(shifts, coords.shape[0], axis=0)
+
+    newcoords = tiled_coords + rep_shifts
+    newZ = np.tile(charge, shifts.shape[0])
+
+    newcrystal = np.column_stack([newcoords[:, 0], newcoords[:, 1], newZ])
     return newcrystal
 
 
-def build_newcrystal_3d(x, y, z, charge, ncell, a=39.0, b=35.0, c=50.0):
-    """
-    Build a 3D crystal by replicating the asymmetric unit across
-    a cubic lattice from -ncell to +ncell in each dimension.
+def build_newcrystal_3d(x, y, z, charge, ncell, a=39.0, b=35.0, c=50.0, centered=True):
+    """Tile-based 3D replication: returns array of [x,y,z,Z].
 
-    Returns:
-        newcrystal: array of shape (N_total, 4)
-                    columns = [x, y, z, Z]
+    This function is a drop-in corrected implementation using explicit
+    tiling and repeating of the asymmetric unit coordinates. It produces
+    exactly ncell**3 translations and centers the lattice when requested.
     """
 
-    # lattice indices: [-ncell, ..., +ncell]
-    cells = np.arange(-ncell, ncell + 1)  # e.g. [-4..4] → 9 cells
+    coords = np.column_stack([x, y, z])  # (N, 3)
 
-    # 3D shift grids
-    shift_x = cells[:, None, None] * a  # (L, 1, 1)
-    shift_y = cells[None, :, None] * b  # (1, L, 1)
-    shift_z = cells[None, None, :] * c  # (1, 1, L)
+    if centered:
+        coords[:, 0] -= 0.5 * (coords[:, 0].min() + coords[:, 0].max())
+        coords[:, 1] -= 0.5 * (coords[:, 1].min() + coords[:, 1].max())
+        coords[:, 2] -= 0.5 * (coords[:, 2].min() + coords[:, 2].max())
 
-    # broadcast to full 3D grid
-    grid_x = shift_x[:, :, :, None]  # (L, L, L, 1)
-    grid_y = shift_y[:, :, :, None]  # (L, L, L, 1)
-    grid_z = shift_z[:, :, :, None]  # (L, L, L, 1)
+    cells = np.arange(ncell, dtype=float)
+    if centered:
+        cells -= (ncell - 1) / 2.0
 
-    # broadcast original coordinates
-    x0 = x[None, None, None, :]  # (1, 1, 1, N)
-    y0 = y[None, None, None, :]
-    z0 = z[None, None, None, :]
-    Z0 = charge[None, None, None, :]
+    sx, sy, sz = np.meshgrid(cells * a, cells * b, cells * c, indexing="ij")
+    shifts = np.column_stack([sx.ravel(), sy.ravel(), sz.ravel()])  # (M,3)
 
-    # apply shifts to all atoms at once
-    X = x0 + grid_x  # (L, L, L, N)
-    Y = y0 + grid_y
-    Z = z0 + grid_z
-    Znum = np.broadcast_to(Z0, X.shape)
+    tiled_coords = np.tile(coords, (shifts.shape[0], 1))  # (M*N, 3)
+    rep_shifts = np.repeat(shifts, coords.shape[0], axis=0)  # (M*N, 3)
 
-    # reshape to (L*L*L*N, 4)
-    newcrystal = np.column_stack([X.ravel(), Y.ravel(), Z.ravel(), Znum.ravel()])
+    newcoords = tiled_coords + rep_shifts
+    newZ = np.tile(charge, shifts.shape[0])
 
+    newcrystal = np.column_stack(
+        [newcoords[:, 0], newcoords[:, 1], newcoords[:, 2], newZ]
+    )
     return newcrystal
